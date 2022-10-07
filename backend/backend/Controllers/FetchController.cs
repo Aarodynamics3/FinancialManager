@@ -1,6 +1,7 @@
 ﻿using backend.Commands;
-using backend.Models;
 using Going.Plaid;
+using Going.Plaid.Transactions;
+using Going.Plaid.Entity;
 using Microsoft.AspNetCore.Mvc;
 
 namespace backend.Controllers {
@@ -15,11 +16,12 @@ namespace backend.Controllers {
 
         [HttpGet]
         public async Task<IActionResult> Transactions([FromQuery] FetchCommand fetchCommand) {
-            var request = new Going.Plaid.Transactions.TransactionsGetRequest()
+            var request = new TransactionsGetRequest()
             {
-                Options = new Going.Plaid.Entity.TransactionsGetRequestOptions()
+                Options = new TransactionsGetRequestOptions()
                 {
-                    Count = 100
+                    Count = 100,
+                    IncludePersonalFinanceCategory = true
                 },
                 StartDate = DateOnly.FromDateTime(DateTime.Now - TimeSpan.FromDays(30)),
                 EndDate = DateOnly.FromDateTime(DateTime.Now),
@@ -27,20 +29,15 @@ namespace backend.Controllers {
             };
 
             var response = await _plaidClient.TransactionsGetAsync(request);
-            var list = new List<string>();
-            
-            foreach (var transaction in response.Transactions) {
-                list.Add(
-                    transaction.Name + " " +
-                    transaction.Amount + " " +
-                    transaction.Date + " " +
-                    string.Join(':', transaction.Category ?? Enumerable.Empty<string>()) + " " +
-                    transaction.PaymentChannel + " " +
-                    transaction.TransactionType
-                );
-            }
+            var transactions = response.Transactions.Select(transaction =>
+                transaction.Name + " " +
+                transaction.Amount + " " +
+                transaction.Date + " " +
+                transaction.PersonalFinanceCategory?.Primary + " " +
+                transaction.PaymentChannel + " " +
+                transaction.TransactionType);
 
-            return Ok(list);
+            return Ok(transactions);
         }
     }
 }
